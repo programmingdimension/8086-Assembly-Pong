@@ -10,6 +10,9 @@ DATA SEGMENT PARA 'DATA'
 	
 	TIME_AUX DB 0                        ;variable used when checking if the time has changed
 	
+	TEXT_PLAYER_ONE_POINTS DB '0','$'    ;text with the player one points
+	TEXT_PLAYER_TWO_POINTS DB '0','$'    ;text with the player two points
+	
 	BALL_ORIGINAL_X DW 0A0h              ;X position of the ball on the beginning of a game
 	BALL_ORIGINAL_Y DW 64h               ;Y position of the ball on the beginning of a game
 	BALL_X DW 0A0h                       ;current X position (column) of the ball
@@ -20,11 +23,11 @@ DATA SEGMENT PARA 'DATA'
 	
 	PADDLE_LEFT_X DW 0Ah                 ;current X position of the left paddle
 	PADDLE_LEFT_Y DW 55h                 ;current Y position of the left paddle
-	PADDLE_LEFT_POINTS DB 0              ;current points of the left player (player one)
+	PLAYER_ONE_POINTS DB 0              ;current points of the left player (player one)
 	
 	PADDLE_RIGHT_X DW 130h               ;current X position of the right paddle
 	PADDLE_RIGHT_Y DW 55h                ;current Y position of the right paddle
-	PADDLE_RIGHT_POINTS DB 0             ;current points of the right player (player two)
+	PLAYER_TWO_POINTS DB 0             ;current points of the right player (player two)
 	
 	PADDLE_WIDTH DW 06h                  ;default paddle width
 	PADDLE_HEIGHT DW 25h                 ;default paddle height
@@ -66,6 +69,8 @@ CODE SEGMENT PARA 'CODE'
 			CALL MOVE_PADDLES            ;move the two paddles (check for pressing of keys)
 			CALL DRAW_PADDLES            ;draw the two paddles with the updated positions
 			
+			CALL DRAW_UI                 ;draw the game User Interface
+			
 			JMP CHECK_TIME               ;after everything checks time again
 		
 		RET
@@ -93,24 +98,30 @@ CODE SEGMENT PARA 'CODE'
 		JMP MOVE_BALL_VERTICALLY
 		
 		GIVE_POINT_TO_PLAYER_ONE:		 ;give one point to the player one and reset ball position
-			INC PADDLE_LEFT_POINTS       ;increment player one points
+			INC PLAYER_ONE_POINTS       ;increment player one points
 			CALL RESET_BALL_POSITION     ;reset ball position to the center of the screen
 			
-			CMP PADDLE_LEFT_POINTS,05h   ;check if this player has reached 5 points
+			CALL UPDATE_TEXT_PLAYER_ONE_POINTS ;update the text of the player one points
+			
+			CMP PLAYER_ONE_POINTS,05h   ;check if this player has reached 5 points
 			JGE GAME_OVER                ;if this player points is 5 or more, the game is over
 			RET
 		
 		GIVE_POINT_TO_PLAYER_TWO:        ;give one point to the player two and reset ball position
-			INC PADDLE_RIGHT_POINTS      ;increment player two points
+			INC PLAYER_TWO_POINTS      ;increment player two points
 			CALL RESET_BALL_POSITION     ;reset ball position to the center of the screen
 			
-			CMP PADDLE_RIGHT_POINTS,05h  ;check if this player has reached 5 points
+			CALL UPDATE_TEXT_PLAYER_TWO_POINTS ;update the text of the player two points
+			
+			CMP PLAYER_TWO_POINTS,05h  ;check if this player has reached 5 points
 			JGE GAME_OVER                ;if this player points is 5 or more, the game is over
 			RET
 			
 		GAME_OVER:                       ;someone has reached 5 points
-			MOV PADDLE_LEFT_POINTS,00h   ;restart player one points
-			MOV PADDLE_RIGHT_POINTS,00h  ;restart player two points
+			MOV PLAYER_ONE_POINTS,00h   ;restart player one points
+			MOV PLAYER_TWO_POINTS,00h  ;restart player two points
+			CALL UPDATE_TEXT_PLAYER_ONE_POINTS
+			CALL UPDATE_TEXT_PLAYER_TWO_POINTS
 			RET
 
 ;       Move the ball vertically		
@@ -399,6 +410,63 @@ CODE SEGMENT PARA 'CODE'
 			
 		RET
 	DRAW_PADDLES ENDP
+	
+	DRAW_UI PROC NEAR
+		
+;       Draw the points of the left player (player one)
+		
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,04h                       ;set row 
+		MOV DL,06h						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_PLAYER_ONE_POINTS    ;give DX a pointer to the string TEXT_PLAYER_ONE_POINTS
+		INT 21h                          ;print the string 
+		
+;       Draw the points of the right player (player two)
+		
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,04h                       ;set row 
+		MOV DL,1Fh						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_PLAYER_TWO_POINTS    ;give DX a pointer to the string TEXT_PLAYER_ONE_POINTS
+		INT 21h                          ;print the string 
+		
+		RET
+	DRAW_UI ENDP
+	
+	UPDATE_TEXT_PLAYER_ONE_POINTS PROC NEAR
+		
+		XOR AX,AX
+		MOV AL,PLAYER_ONE_POINTS ;given, for example that P1 -> 2 points => AL,2
+		
+		;now, before printing to the screen, we need to convert the decimal value to the ascii code character 
+		;we can do this by adding 30h (number to ASCII)
+		;and by subtracting 30h (ASCII to number)
+		ADD AL,30h                       ;AL,'2'
+		MOV [TEXT_PLAYER_ONE_POINTS],AL
+		
+		RET
+	UPDATE_TEXT_PLAYER_ONE_POINTS ENDP
+	
+	UPDATE_TEXT_PLAYER_TWO_POINTS PROC NEAR
+		
+		XOR AX,AX
+		MOV AL,PLAYER_TWO_POINTS ;given, for example that P2 -> 2 points => AL,2
+		
+		;now, before printing to the screen, we need to convert the decimal value to the ascii code character 
+		;we can do this by adding 30h (number to ASCII)
+		;and by subtracting 30h (ASCII to number)
+		ADD AL,30h                       ;AL,'2'
+		MOV [TEXT_PLAYER_TWO_POINTS],AL
+		
+		RET
+	UPDATE_TEXT_PLAYER_TWO_POINTS ENDP
 	
 	CLEAR_SCREEN PROC NEAR               ;clear the screen by restarting the video mode
 	
