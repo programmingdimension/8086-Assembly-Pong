@@ -10,12 +10,20 @@ DATA SEGMENT PARA 'DATA'
 	
 	TIME_AUX DB 0                        ;variable used when checking if the time has changed
 	GAME_ACTIVE DB 1                     ;is the game active? (1 -> Yes, 0 -> No (game over))
+	EXITING_GAME DB 0
 	WINNER_INDEX DB 0                    ;the index of the winner (1 -> player one, 2 -> player two)
+	CURRENT_SCENE DB 0                   ;the index of the current scene (0 -> main menu, 1 -> game)
 	
 	TEXT_PLAYER_ONE_POINTS DB '0','$'    ;text with the player one points
 	TEXT_PLAYER_TWO_POINTS DB '0','$'    ;text with the player two points
 	TEXT_GAME_OVER_TITLE DB 'GAME OVER','$' ;text with the game over menu title
 	TEXT_GAME_OVER_WINNER DB 'Player 0 won','$' ;text with the winner text
+	TEXT_GAME_OVER_PLAY_AGAIN DB 'Press R to play again','$' ;text with the game over play again message
+	TEXT_GAME_OVER_MAIN_MENU DB 'Press E to exit to main menu','$' ;text with the game over main menu message
+	TEXT_MAIN_MENU_TITLE DB 'MAIN MENU','$' ;text with the main menu title
+	TEXT_MAIN_MENU_SINGLEPLAYER DB 'SINGLEPLAYER - S KEY','$' ;text with the singleplayer message
+	TEXT_MAIN_MENU_MULTIPLAYER DB 'MULTIPLAYER - M KEY','$' ;text with the multiplayer message
+	TEXT_MAIN_MENU_EXIT DB 'EXIT GAME - E KEY','$' ;text with the exit game message
 	
 	BALL_ORIGINAL_X DW 0A0h              ;X position of the ball on the beginning of a game
 	BALL_ORIGINAL_Y DW 64h               ;Y position of the ball on the beginning of a game
@@ -55,6 +63,12 @@ CODE SEGMENT PARA 'CODE'
 		
 		CHECK_TIME:                      ;time checking loop
 			
+			CMP EXITING_GAME,01h
+			JE START_EXIT_PROCESS
+			
+			CMP CURRENT_SCENE,00h
+			JE SHOW_MAIN_MENU
+			
 			CMP GAME_ACTIVE,00h
 			JE SHOW_GAME_OVER
 			
@@ -83,8 +97,15 @@ CODE SEGMENT PARA 'CODE'
 			SHOW_GAME_OVER:
 				CALL DRAW_GAME_OVER_MENU
 				JMP CHECK_TIME
-		
-		RET
+				
+			SHOW_MAIN_MENU:
+				CALL DRAW_MAIN_MENU
+				JMP CHECK_TIME
+				
+			START_EXIT_PROCESS:
+				CALL CONCLUDE_EXIT_GAME
+				
+		RET		
 	MAIN ENDP
 	
 	MOVE_BALL PROC NEAR                  ;proccess the movement of the ball
@@ -504,7 +525,7 @@ CODE SEGMENT PARA 'CODE'
 		INT 10h							 
 		
 		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
-		LEA DX,TEXT_GAME_OVER_TITLE      ;give DX a pointer to the string TEXT_PLAYER_ONE_POINTS
+		LEA DX,TEXT_GAME_OVER_TITLE      ;give DX a pointer 
 		INT 21h                          ;print the string
 
 ;       Shows the winner
@@ -517,15 +538,139 @@ CODE SEGMENT PARA 'CODE'
 		CALL UPDATE_WINNER_TEXT
 		
 		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
-		LEA DX,TEXT_GAME_OVER_WINNER      ;give DX a pointer to the string TEXT_PLAYER_ONE_POINTS
+		LEA DX,TEXT_GAME_OVER_WINNER      ;give DX a pointer 
+		INT 21h                          ;print the string
+		
+;       Shows the play again message
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,08h                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_GAME_OVER_PLAY_AGAIN      ;give DX a pointer 
+		INT 21h                          ;print the string
+		
+;       Shows the main menu message
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,0Ah                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_GAME_OVER_MAIN_MENU      ;give DX a pointer 
 		INT 21h                          ;print the string
 		
 ;       Waits for a key press
 		MOV AH,00h
 		INT 16h
-		
+
+;       If the key is either 'R' or 'r', restart the game		
+		CMP AL,'R'
+		JE RESTART_GAME
+		CMP AL,'r'
+		JE RESTART_GAME
+;       If the key is either 'E' or 'e', exit to main menu
+		CMP AL,'E'
+		JE EXIT_TO_MAIN_MENU
+		CMP AL,'e'
+		JE EXIT_TO_MAIN_MENU
 		RET
+		
+		RESTART_GAME:
+			MOV GAME_ACTIVE,01h
+			RET
+		
+		EXIT_TO_MAIN_MENU:
+			MOV GAME_ACTIVE,00h
+			MOV CURRENT_SCENE,00h
+			RET
+			
 	DRAW_GAME_OVER_MENU ENDP
+	
+	DRAW_MAIN_MENU PROC NEAR
+		
+		CALL CLEAR_SCREEN
+		
+;       Shows the menu title
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,04h                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_MAIN_MENU_TITLE      ;give DX a pointer 
+		INT 21h                          ;print the string
+		
+;       Shows the singleplayer message
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,06h                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_MAIN_MENU_SINGLEPLAYER      ;give DX a pointer 
+		INT 21h                          ;print the string
+		
+;       Shows the multiplayer message
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,08h                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_MAIN_MENU_MULTIPLAYER      ;give DX a pointer 
+		INT 21h                          ;print the string
+		
+;       Shows the exit message
+		MOV AH,02h                       ;set cursor position
+		MOV BH,00h                       ;set page number
+		MOV DH,0Ah                       ;set row 
+		MOV DL,04h						 ;set column
+		INT 10h							 
+		
+		MOV AH,09h                       ;WRITE STRING TO STANDARD OUTPUT
+		LEA DX,TEXT_MAIN_MENU_EXIT      ;give DX a pointer 
+		INT 21h                          ;print the string	
+		
+		MAIN_MENU_WAIT_FOR_KEY:
+;       Waits for a key press
+			MOV AH,00h
+			INT 16h
+		
+;       Check whick key was pressed
+			CMP AL,'S'
+			JE START_SINGLEPLAYER
+			CMP AL,'s'
+			JE START_SINGLEPLAYER
+			CMP AL,'M'
+			JE START_MULTIPLAYER
+			CMP AL,'m'
+			JE START_MULTIPLAYER
+			CMP AL,'E'
+			JE EXIT_GAME
+			CMP AL,'e'
+			JE EXIT_GAME
+			JMP MAIN_MENU_WAIT_FOR_KEY
+			
+		START_SINGLEPLAYER:
+			MOV CURRENT_SCENE,01h
+			MOV GAME_ACTIVE,01h
+			RET
+		
+		START_MULTIPLAYER:
+			JMP MAIN_MENU_WAIT_FOR_KEY ;TODO
+		
+		EXIT_GAME:
+			MOV EXITING_GAME,01h
+			RET
+
+	DRAW_MAIN_MENU ENDP
 	
 	UPDATE_WINNER_TEXT PROC NEAR
 		
@@ -550,6 +695,17 @@ CODE SEGMENT PARA 'CODE'
 			RET
 			
 	CLEAR_SCREEN ENDP
+	
+	CONCLUDE_EXIT_GAME PROC NEAR         ;goes back to the text mode
+		
+		MOV AH,00h                   ;set the configuration to video mode
+		MOV AL,02h                   ;choose the video mode
+		INT 10h    					 ;execute the configuration 
+		
+		MOV AH,4Ch                   ;terminate program
+		INT 21h
+
+	CONCLUDE_EXIT_GAME ENDP
 
 CODE ENDS
 END
